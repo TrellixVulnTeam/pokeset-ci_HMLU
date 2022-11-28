@@ -25,7 +25,26 @@ class TemporaryRepository(TemporaryDirectory):
         urlretrieve(self.tarball_url, filepath)
         logger.info("retrieved tarball %s to %s", self.tarball_url, filepath)
         with tarfile.open(filepath) as tar:
-            tar.extractall(path=self.name)
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(tar, path=self.name)
         os.remove(filepath)
         # content is in an inner directory, so move everything one layer up
         inner, *_ = os.listdir(self.name)
